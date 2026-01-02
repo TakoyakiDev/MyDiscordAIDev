@@ -64,7 +64,7 @@ class RAGState(TypedDict):
     """RAGワークフローの状態"""
     query: str
     user_id: int
-    conversation_history: Annotated[List[BaseMessage], operator.add]
+    conversation_history: List[BaseMessage]
     
     # 検索結果
     web_context: str
@@ -286,6 +286,11 @@ class RAGGraphNodes:
                 elif isinstance(msg, AIMessage):
                     history_text += f"AI: {msg.content}\n"
         
+        # 会話履歴セクションを事前に構築
+        history_section = ""
+        if history_text:
+            history_section = f"【会話履歴】\n{history_text}\n"
+        
         prompt = f"""あなたは「ホワイトアウトサバイバル」の専門アシスタントです。
 以下の参照情報をもとに、質問に日本語で簡潔かつ正確に答えてください。
 
@@ -295,8 +300,7 @@ class RAGGraphNodes:
 3. 情報が不足している場合は「情報がありません」と明記してください
 4. 簡潔に、要点を押さえて回答してください
 
-{f"【会話履歴】\\n{history_text}\\n" if history_text else ""}
-
+{history_section}
 【参照情報】
 {context}
 
@@ -422,12 +426,9 @@ def create_rag_graph(web_retriever, sheets_retriever, llm):
     workflow.add_edge(START, "initialize")
     workflow.add_edge("initialize", "analyze_query")
     
-    # 並列検索（分岐ではなく並列実行）
+    # 並列検索の代わりに逐次実行（状態競合を回避）
     workflow.add_edge("analyze_query", "search_web")
-    workflow.add_edge("analyze_query", "search_sheets")
-    
-    # 検索結果の統合
-    workflow.add_edge("search_web", "evaluate_context")
+    workflow.add_edge("search_web", "search_sheets")
     workflow.add_edge("search_sheets", "evaluate_context")
     
     # コンテキスト評価後の条件分岐
@@ -460,9 +461,8 @@ def create_rag_graph(web_retriever, sheets_retriever, llm):
         }
     )
     
-    # リトライループ
+    # リトライループ（逐次実行）
     workflow.add_edge("retry", "search_web")
-    workflow.add_edge("retry", "search_sheets")
     
     # 終了
     workflow.add_edge("handle_insufficient_context", "finalize")
@@ -533,9 +533,7 @@ async def ask_command(ctx, *, question: str):
         config = {"configurable": {"thread_id": str(ctx.author.id)}}
         
         try:
-            result = await asyncio.to_thread(
-                lambda: rag_graph.invoke(initial_state, config)
-            )
+            result = await rag_graph.ainvoke(initial_state, config)
         except Exception as e:
             logger.error(f"グラフ実行エラー: {e}")
             await ctx.send(f"⚠️ システムエラーが発生しました: {str(e)}")
