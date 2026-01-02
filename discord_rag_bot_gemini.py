@@ -292,6 +292,11 @@ class RAGGraphNodes:
                 elif isinstance(msg, AIMessage):
                     history_text += f"AI: {msg.content}\n"
         
+        # 会話履歴セクションを事前に構築
+        history_section = ""
+        if history_text:
+            history_section = f"【会話履歴】\n{history_text}\n"
+        
         prompt = f"""あなたは「ホワイトアウト・サバイバル」の専門攻略AIアシスタントです。
 以下の参照情報をもとに、質問に日本語で正確かつ詳細に答えてください。
 
@@ -302,8 +307,7 @@ class RAGGraphNodes:
 4. 情報が不足している場合は「情報がありません」と明記してください
 5. 読みやすく、構造化された回答を心がけてください
 
-{f"【会話履歴】\\n{history_text}\\n" if history_text else ""}
-
+{history_section}
 【参照情報】
 {context}
 
