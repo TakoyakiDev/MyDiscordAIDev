@@ -36,7 +36,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Gemini設定
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 llm = ChatGoogleGenerativeAI(
-    model="models/gemini-2.0-flash-exp",
+    model="models/gemini-2.5-flash",
     google_api_key=GEMINI_API_KEY,
     temperature=0.3,
     max_retries=3
