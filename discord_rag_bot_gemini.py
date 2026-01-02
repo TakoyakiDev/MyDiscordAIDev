@@ -69,7 +69,7 @@ class RAGState(TypedDict):
     """RAGワークフローの状態"""
     query: str
     user_id: int
-    conversation_history: Annotated[List[BaseMessage], operator.add]
+    conversation_history: List[BaseMessage]
     
     # 検索結果
     web_context: str
@@ -433,12 +433,9 @@ def create_rag_graph(web_retriever, sheets_retriever, llm):
     workflow.add_edge(START, "initialize")
     workflow.add_edge("initialize", "analyze_query")
     
-    # 並列検索
+    # 並列検索の代わりに逐次実行（状態競合を回避）
     workflow.add_edge("analyze_query", "search_web")
-    workflow.add_edge("analyze_query", "search_sheets")
-    
-    # 検索結果の統合
-    workflow.add_edge("search_web", "evaluate_context")
+    workflow.add_edge("search_web", "search_sheets")
     workflow.add_edge("search_sheets", "evaluate_context")
     
     # コンテキスト評価後の条件分岐
@@ -471,9 +468,8 @@ def create_rag_graph(web_retriever, sheets_retriever, llm):
         }
     )
     
-    # リトライループ
+    # リトライループ（逐次実行）
     workflow.add_edge("retry", "search_web")
-    workflow.add_edge("retry", "search_sheets")
     
     # 終了
     workflow.add_edge("handle_insufficient_context", "finalize")
