@@ -534,9 +534,7 @@ async def ask_command(ctx, *, question: str):
         config = {"configurable": {"thread_id": str(ctx.author.id)}}
         
         try:
-            result = await asyncio.to_thread(
-                lambda: rag_graph.invoke(initial_state, config)
-            )
+            result = await rag_graph.ainvoke(initial_state, config)
         except Exception as e:
             logger.error(f"グラフ実行エラー: {e}")
             await ctx.send(f"⚠️ システムエラーが発生しました: {str(e)}")
